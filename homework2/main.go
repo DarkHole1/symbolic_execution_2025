@@ -6,6 +6,8 @@ import (
 	"log"
 	"symbolic-execution-course/internal/symbolic"
 	"symbolic-execution-course/internal/translator"
+
+	"github.com/ebukreev/go-z3/z3"
 )
 
 func main() {
@@ -53,4 +55,59 @@ func main() {
 	}
 
 	fmt.Printf("Сложное Z3 выражение создано: %T\n", z3AndExpr)
+
+	complexExpr := symbolic.NewLogicalOperation(
+		[]symbolic.SymbolicExpression{
+			symbolic.NewBinaryOperation(
+				symbolic.NewBinaryOperation(
+					x, y, symbolic.ADD,
+				),
+				symbolic.NewBinaryOperation(
+					symbolic.NewBinaryOperation(x, y, symbolic.MUL),
+					symbolic.NewIntConstant(2),
+					symbolic.MOD,
+				),
+				symbolic.EQ,
+			),
+			symbolic.NewLogicalOperation(
+				[]symbolic.SymbolicExpression{
+					symbolic.NewBinaryOperation(x, y, symbolic.LT),
+					symbolic.NewBinaryOperation(symbolic.NewBinaryOperation(x, y, symbolic.SUB), zero, symbolic.GE),
+					symbolic.NewBinaryOperation(x, zero, symbolic.GT),
+				},
+				symbolic.AND,
+			),
+		},
+		symbolic.OR,
+	)
+
+	z3ComplexExpr, err := translator.TranslateExpression(complexExpr)
+	if err != nil {
+		log.Fatalf("Ошибка трансляции очень сложного выражения: %v", err)
+	}
+
+	fmt.Printf("Очень сложное Z3 выражение создано: %T\n", z3ComplexExpr)
+
+	solver := z3.NewSolver(translator.GetContext().(*z3.Context))
+
+	solver.Assert(z3ComplexExpr.(z3.Bool))
+
+	sat, err := solver.Check()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	z3x, _ := translator.TranslateExpression(x)
+	z3y, _ := translator.TranslateExpression(y)
+
+	if sat {
+		model := solver.Model()
+
+		xVal := model.Eval(z3x.(z3.Int), false)
+		yVal := model.Eval(z3y.(z3.Int), false)
+
+		fmt.Printf("Решение найдено: x = %s, y = %s\n", xVal.String(), yVal.String())
+	} else {
+		fmt.Println("Решение не найдено")
+	}
 }
