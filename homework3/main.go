@@ -12,8 +12,16 @@ func main() {
 	mem.AssignToArray(array, 5, symbolic.NewIntConstant(10))
 
 	var fromArray = mem.GetFromArray(array, 5)
-	println(fromArray)
+	println(fromArray.String())
 
-	var anotherFromArray = mem.GetFromArray(array, 10)
-	println(anotherFromArray)
+	// Will panic
+	// var anotherFromArray = mem.GetFromArray(array, 10)
+	// println(anotherFromArray)
+
+	var object = mem.Allocate(symbolic.ObjectType)
+
+	mem.AssignField(object, 5, symbolic.NewIntConstant(10))
+
+	var fromObject = mem.GetFieldValue(object, 5)
+	println(fromObject.String())
 }
