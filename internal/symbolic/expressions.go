@@ -279,19 +279,23 @@ func (op LogicalOperator) String() string {
 }
 
 type Ref struct {
-	// TODO: Выбрать и написать внутреннее представление символьной ссылки
+	Tpe    ExpressionType
+	Ptr    int64
+	Memory interface {
+		Deref(*Ref) SymbolicExpression
+	}
 }
 
 func (ref *Ref) Type() ExpressionType {
-	panic("не реализовано")
+	return ref.Tpe
 }
 
 func (ref *Ref) String() string {
-	panic("не реализовано")
+	return fmt.Sprintf("0x%04x", ref.Ptr)
 }
 
 func (ref *Ref) Accept(visitor Visitor) interface{} {
-	panic("не реализовано")
+	return ref.Memory.Deref(ref).Accept(visitor)
 }
 
 // TODO: Добавьте дополнительные типы выражений по необходимости:
