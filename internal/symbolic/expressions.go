@@ -287,7 +287,7 @@ type Ref struct {
 }
 
 func (ref *Ref) Type() ExpressionType {
-	return ref.Tpe
+	return ReferenceType
 }
 
 func (ref *Ref) String() string {

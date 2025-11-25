@@ -24,6 +24,8 @@ func (et ExpressionType) String() string {
 		return "array"
 	case ObjectType:
 		return "object"
+	case ReferenceType:
+		return "ref"
 	default:
 		return "unknown"
 	}
