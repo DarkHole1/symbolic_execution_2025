@@ -278,6 +278,26 @@ func (op LogicalOperator) String() string {
 	}
 }
 
+type Ref struct {
+	Tpe    ExpressionType
+	Ptr    int64
+	Memory interface {
+		Deref(*Ref) SymbolicExpression
+	}
+}
+
+func (ref *Ref) Type() ExpressionType {
+	return ReferenceType
+}
+
+func (ref *Ref) String() string {
+	return fmt.Sprintf("0x%04x", ref.Ptr)
+}
+
+func (ref *Ref) Accept(visitor Visitor) interface{} {
+	return ref.Memory.Deref(ref).Accept(visitor)
+}
+
 // TODO: Добавьте дополнительные типы выражений по необходимости:
 // - UnaryOperation (унарные операции: -x, !x)
 // - ArrayAccess (доступ к элементам массива: arr[index])
