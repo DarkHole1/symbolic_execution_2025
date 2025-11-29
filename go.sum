@@ -1,3 +1,5 @@
+github.com/LastPossum/kamino v0.0.2 h1:Zry5lS7x7TTU1hzzk3Utnp+rX8kk/wWhuW52Ha9As+U=
+github.com/LastPossum/kamino v0.0.2/go.mod h1:H8Qm+6DGeNOoXk9hHIOEAQWS9nbo0YwK32pC/7REsOE=
 github.com/ebukreev/go-z3 v0.0.0-20250821144348-dfd1fde1462b h1:4MLrvHOoMZz8YTsrZGgqdFzCsNM3qnN3IUhF12jkxbc=
 github.com/ebukreev/go-z3 v0.0.0-20250821144348-dfd1fde1462b/go.mod h1:OkwGpPy9ZSY98wyfthByCVKLYPNCUTW3UmqOmkJ3koE=
 golang.org/x/mod v0.12.0 h1:rmsUpXtvNzj340zd98LZ4KntptpfRHwpFOHG188oHXc=

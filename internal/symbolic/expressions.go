@@ -156,7 +156,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 			panic("incorrect number of arguments")
 		}
 	case NOT:
-		if len(operands) != 2 {
+		if len(operands) != 1 {
 			panic("incorrect number of arguments")
 		}
 	}

@@ -39,12 +39,20 @@ func createAnalyser(source string, functionName string, selector PathSelector) *
 		frame.LocalMemory[param.Name()] = symbolic.NewSymbolicVariable(param.Name(), ConvertType(param.Type()))
 	}
 
+	res := &Analyser{
+		Package:      graph.Package(),
+		PathSelector: selector,
+		Results:      []Interpreter{},
+		Z3Translator: zt,
+	}
+
 	start := Interpreter{
 		CallStack: []CallStackFrame{
 			frame,
 		},
 		PathCondition: symbolic.NewBoolConstant(true),
 		Heap:          memory.NewSymbolicMemory(),
+		Analyser:      res,
 	}
 
 	var queue PriorityQueue
@@ -54,15 +62,7 @@ func createAnalyser(source string, functionName string, selector PathSelector) *
 		priority: selector.CalculatePriority(start),
 	})
 
-	res := &Analyser{
-		Package:      graph.Package(),
-		StatesQueue:  queue,
-		PathSelector: selector,
-		Results:      []Interpreter{},
-		Z3Translator: zt,
-	}
-
-	start.Analyser = res
+	res.StatesQueue = queue
 
 	return res
 }
@@ -86,7 +86,5 @@ func Analyse(source string, functionName string) []Interpreter {
 		i++
 	}
 
-	return []Interpreter{}
-	// TODO implement me
-	// panic("implement me")
+	return analyser.Results
 }

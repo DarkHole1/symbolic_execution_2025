@@ -3,10 +3,12 @@ package internal
 import (
 	"fmt"
 	"go/constant"
+	"go/token"
 	"go/types"
 	"symbolic-execution-course/internal/memory"
 	"symbolic-execution-course/internal/symbolic"
 
+	"github.com/LastPossum/kamino"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -36,53 +38,89 @@ func ConvertType(tpe types.Type) symbolic.ExpressionType {
 	}
 }
 
+func execBinOp(op token.Token, X, Y symbolic.SymbolicExpression) symbolic.SymbolicExpression {
+	switch op {
+	case token.ADD:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.ADD)
+	case token.SUB:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.SUB)
+	case token.MUL:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.MUL)
+	case token.QUO:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.DIV)
+	case token.REM:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.MOD)
+	case token.EQL:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.EQ)
+	case token.LSS:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.LT)
+	case token.GTR:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.GT)
+	case token.NEQ:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.NE)
+	case token.LEQ:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.LE)
+	case token.GEQ:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.GE)
+	case token.LAND:
+		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X, Y}, symbolic.AND)
+	case token.LOR:
+		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X, Y}, symbolic.OR)
+	default:
+		panic(fmt.Sprintf("unexpected token.Token: %#v", op))
+	}
+}
+
+func (interpreter *Interpreter) frame() *CallStackFrame {
+	return &interpreter.CallStack[len(interpreter.CallStack)-1]
+}
+
 func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []Interpreter {
 	switch element := element.(type) {
 	case *ssa.BinOp:
 		X := interpreter.resolveExpression(element.X)
 		Y := interpreter.resolveExpression(element.Y)
-		fmt.Println("binop", element.Op, X, Y)
+		execBinOp(element.Op, X, Y)
+		interpreter.frame().CurrentInstr++
+		return []Interpreter{*interpreter}
 
-	case *ssa.Alloc:
-	case *ssa.Call:
-	case *ssa.ChangeInterface:
-	case *ssa.ChangeType:
-	case *ssa.Convert:
-	case *ssa.DebugRef:
-	case *ssa.Defer:
-	case *ssa.Extract:
-	case *ssa.Field:
-	case *ssa.FieldAddr:
-	case *ssa.Go:
 	case *ssa.If:
-	case *ssa.Index:
-	case *ssa.IndexAddr:
-	case *ssa.Jump:
-	case *ssa.Lookup:
-	case *ssa.MakeChan:
-	case *ssa.MakeClosure:
-	case *ssa.MakeInterface:
-	case *ssa.MakeMap:
-	case *ssa.MakeSlice:
-	case *ssa.MapUpdate:
-	case *ssa.MultiConvert:
-	case *ssa.Next:
-	case *ssa.Panic:
-	case *ssa.Phi:
-	case *ssa.Range:
+		cond := interpreter.resolveExpression(element.Cond)
+		intTrue, _ := kamino.Clone(interpreter)
+		intFalse, _ := kamino.Clone(interpreter)
+
+		// TODO: Fix logic
+		intTrue.Analyser = interpreter.Analyser
+		intFalse.Analyser = interpreter.Analyser
+
+		succs := interpreter.frame().Function.Blocks[interpreter.frame().CurrentBlock].Succs
+
+		intTrue.PathCondition = symbolic.NewLogicalOperation(
+			[]symbolic.SymbolicExpression{intTrue.PathCondition, cond},
+			symbolic.AND,
+		)
+		intTrue.frame().CurrentBlock = succs[0].Index
+		intTrue.frame().CurrentInstr = 0
+		intFalse.PathCondition = symbolic.NewLogicalOperation(
+			[]symbolic.SymbolicExpression{
+				intFalse.PathCondition,
+				symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{cond}, symbolic.NOT),
+			},
+			symbolic.AND,
+		)
+		intFalse.frame().CurrentBlock = succs[1].Index
+		intFalse.frame().CurrentInstr = 0
+		return []Interpreter{*intTrue, *intFalse}
+	// case *ssa.Alloc:
+	// case *ssa.Jump:
+	// case *ssa.UnOp:
 	case *ssa.Return:
-	case *ssa.RunDefers:
-	case *ssa.Select:
-	case *ssa.Send:
-	case *ssa.Slice:
-	case *ssa.SliceToArrayPointer:
-	case *ssa.Store:
-	case *ssa.TypeAssert:
-	case *ssa.UnOp:
+		interpreter.Analyser.Results = append(interpreter.Analyser.Results, *interpreter)
+		return []Interpreter{}
 	default:
 		panic(fmt.Sprintf("unexpected ssa.Instruction: %#v", element))
 	}
-	return []Interpreter{*interpreter}
+	// return []Interpreter{*interpreter}
 }
 
 func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.SymbolicExpression {
@@ -104,6 +142,11 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 			panic(fmt.Sprintf("no parameter in scope %#v", value.Name()))
 		}
 		return res
+
+	case *ssa.BinOp:
+		X := interpreter.resolveExpression(value.X)
+		Y := interpreter.resolveExpression(value.Y)
+		return execBinOp(value.Op, X, Y)
 
 	default:
 		panic(fmt.Sprintf("unexpected ssa.Value: %#v", value))
