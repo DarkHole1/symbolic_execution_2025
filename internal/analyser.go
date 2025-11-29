@@ -1,8 +1,12 @@
 package internal
 
 import (
-	"golang.org/x/tools/go/ssa"
+	"symbolic-execution-course/internal/memory"
+	issa "symbolic-execution-course/internal/ssa"
+	"symbolic-execution-course/internal/symbolic"
 	"symbolic-execution-course/internal/translator"
+
+	"golang.org/x/tools/go/ssa"
 )
 
 type Analyser struct {
@@ -13,7 +17,76 @@ type Analyser struct {
 	Z3Translator *translator.Z3Translator
 }
 
+func createAnalyser(source string, functionName string, selector PathSelector) *Analyser {
+	builder := issa.NewBuilder()
+
+	graph, err := builder.ParseAndBuildSSA(source, functionName)
+	if err != nil {
+		panic("ssa parsing failed")
+	}
+
+	zt := translator.NewZ3Translator()
+
+	frame := CallStackFrame{
+		Function:     graph,
+		LocalMemory:  map[string]symbolic.SymbolicExpression{},
+		ReturnValue:  nil,
+		CurrentBlock: 0,
+		CurrentInstr: 0,
+	}
+
+	for _, param := range graph.Params {
+		frame.LocalMemory[param.Name()] = symbolic.NewSymbolicVariable(param.Name(), ConvertType(param.Type()))
+	}
+
+	start := Interpreter{
+		CallStack: []CallStackFrame{
+			frame,
+		},
+		PathCondition: symbolic.NewBoolConstant(true),
+		Heap:          memory.NewSymbolicMemory(),
+	}
+
+	var queue PriorityQueue
+
+	queue.Push(&Item{
+		value:    start,
+		priority: selector.CalculatePriority(start),
+	})
+
+	res := &Analyser{
+		Package:      graph.Package(),
+		StatesQueue:  queue,
+		PathSelector: selector,
+		Results:      []Interpreter{},
+		Z3Translator: zt,
+	}
+
+	start.Analyser = res
+
+	return res
+}
+
 func Analyse(source string, functionName string) []Interpreter {
+	analyser := createAnalyser(source, functionName, &RandomPathSelector{})
+
+	i := 0
+	for i < 10 && analyser.StatesQueue.Len() > 0 {
+		state := analyser.StatesQueue.Pop().(*Item).value
+		stack := state.CallStack[len(state.CallStack)-1]
+		block := stack.Function.Blocks[stack.CurrentBlock]
+		instr := block.Instrs[stack.CurrentInstr]
+		new_states := state.interpretDynamically(instr)
+		for _, new_state := range new_states {
+			analyser.StatesQueue.Push(&Item{
+				value:    new_state,
+				priority: analyser.PathSelector.CalculatePriority(new_state),
+			})
+		}
+		i++
+	}
+
+	return []Interpreter{}
 	// TODO implement me
-	panic("implement me")
+	// panic("implement me")
 }
