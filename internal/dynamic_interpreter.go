@@ -22,7 +22,7 @@ type Interpreter struct {
 type CallStackFrame struct {
 	Function     *ssa.Function
 	LocalMemory  map[string]symbolic.SymbolicExpression
-	ReturnValue  symbolic.SymbolicExpression
+	ReturnValue  []symbolic.SymbolicExpression
 	CurrentBlock int
 	CurrentInstr int
 }
@@ -115,12 +115,17 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 	// case *ssa.Jump:
 	// case *ssa.UnOp:
 	case *ssa.Return:
+		results := make([]symbolic.SymbolicExpression, len(element.Results))
+		for i, res := range element.Results {
+			fmt.Println(res)
+			results[i] = interpreter.resolveExpression(res)
+		}
+		interpreter.frame().ReturnValue = results
 		interpreter.Analyser.Results = append(interpreter.Analyser.Results, *interpreter)
 		return []Interpreter{}
 	default:
 		panic(fmt.Sprintf("unexpected ssa.Instruction: %#v", element))
 	}
-	// return []Interpreter{*interpreter}
 }
 
 func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.SymbolicExpression {
