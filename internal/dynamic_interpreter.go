@@ -71,6 +71,17 @@ func execBinOp(op token.Token, X, Y symbolic.SymbolicExpression) symbolic.Symbol
 	}
 }
 
+func execUnOp(op token.Token, X symbolic.SymbolicExpression) symbolic.SymbolicExpression {
+	switch op {
+	case token.SUB:
+		return symbolic.NewBinaryOperation(X, symbolic.NewIntConstant(-1), symbolic.MUL)
+	case token.NOT:
+		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X}, symbolic.NOT)
+	default:
+		panic(fmt.Sprintf("unexpected token.Token: %#v", op))
+	}
+}
+
 func (interpreter *Interpreter) frame() *CallStackFrame {
 	return &interpreter.CallStack[len(interpreter.CallStack)-1]
 }
@@ -112,12 +123,20 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 		intFalse.frame().CurrentInstr = 0
 		return []Interpreter{*intTrue, *intFalse}
 	// case *ssa.Alloc:
-	// case *ssa.Jump:
-	// case *ssa.UnOp:
+	case *ssa.Jump:
+		interpreter.frame().CurrentBlock = element.Block().Succs[0].Index
+		interpreter.frame().CurrentInstr = 0
+		return []Interpreter{*interpreter}
+
+	case *ssa.UnOp:
+		X := interpreter.resolveExpression(element.X)
+		execUnOp(element.Op, X)
+		interpreter.frame().CurrentInstr++
+		return []Interpreter{*interpreter}
+
 	case *ssa.Return:
 		results := make([]symbolic.SymbolicExpression, len(element.Results))
 		for i, res := range element.Results {
-			fmt.Println(res)
 			results[i] = interpreter.resolveExpression(res)
 		}
 		interpreter.frame().ReturnValue = results
@@ -152,6 +171,10 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 		X := interpreter.resolveExpression(value.X)
 		Y := interpreter.resolveExpression(value.Y)
 		return execBinOp(value.Op, X, Y)
+
+	case *ssa.UnOp:
+		X := interpreter.resolveExpression(value.X)
+		return execUnOp(value.Op, X)
 
 	default:
 		panic(fmt.Sprintf("unexpected ssa.Value: %#v", value))
