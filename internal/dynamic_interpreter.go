@@ -5,6 +5,7 @@ import (
 	"go/constant"
 	"go/token"
 	"go/types"
+	"slices"
 	"symbolic-execution-course/internal/memory"
 	"symbolic-execution-course/internal/symbolic"
 
@@ -21,10 +22,10 @@ type Interpreter struct {
 
 type CallStackFrame struct {
 	Function     *ssa.Function
-	LocalMemory  map[string]symbolic.SymbolicExpression
+	LocalMemory  map[ssa.Value]symbolic.SymbolicExpression
 	ReturnValue  []symbolic.SymbolicExpression
 	CurrentBlock int
-	CurrentInstr int
+	PrevBlock    int
 }
 
 func ConvertType(tpe types.Type) symbolic.ExpressionType {
@@ -86,14 +87,57 @@ func (interpreter *Interpreter) frame() *CallStackFrame {
 	return &interpreter.CallStack[len(interpreter.CallStack)-1]
 }
 
+func (interpreter *Interpreter) interpretCurrentBlock() []Interpreter {
+	var res []Interpreter
+	nonPhis := interpreter.executePhis()
+	for _, instr := range nonPhis {
+		res = interpreter.interpretDynamically(instr)
+	}
+	return res
+}
+
+func (interpreter *Interpreter) executePhis() []ssa.Instruction {
+	frame := interpreter.frame()
+	block := frame.Function.Blocks[frame.CurrentBlock]
+
+	firstNonPhi := -1
+	for i, instr := range block.Instrs {
+		if _, ok := instr.(*ssa.Phi); !ok {
+			firstNonPhi = i
+			break
+		}
+	}
+
+	nonPhis := block.Instrs[firstNonPhi:]
+	if firstNonPhi > 0 {
+		phis := block.Instrs[:firstNonPhi]
+
+		predIndex := slices.Index(block.Preds, frame.Function.Blocks[frame.PrevBlock])
+		phitemps := make([]symbolic.SymbolicExpression, len(phis))
+		for i, phi := range phis {
+			phi := phi.(*ssa.Phi)
+			edge := phi.Edges[predIndex]
+			phitemps[i] = interpreter.resolveExpression(edge)
+		}
+		for i, phi := range phis {
+			interpreter.frame().LocalMemory[phi.(*ssa.Phi)] = phitemps[i]
+		}
+	}
+	return nonPhis
+}
+
 func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []Interpreter {
 	switch element := element.(type) {
 	case *ssa.BinOp:
 		X := interpreter.resolveExpression(element.X)
 		Y := interpreter.resolveExpression(element.Y)
-		execBinOp(element.Op, X, Y)
-		interpreter.frame().CurrentInstr++
-		return []Interpreter{*interpreter}
+		interpreter.frame().LocalMemory[element] = execBinOp(element.Op, X, Y)
+		return nil
+
+	case *ssa.UnOp:
+		X := interpreter.resolveExpression(element.X)
+		interpreter.frame().LocalMemory[element] = execUnOp(element.Op, X)
+		return nil
 
 	case *ssa.If:
 		cond := interpreter.resolveExpression(element.Cond)
@@ -111,7 +155,7 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 			symbolic.AND,
 		)
 		intTrue.frame().CurrentBlock = succs[0].Index
-		intTrue.frame().CurrentInstr = 0
+		intTrue.frame().PrevBlock = interpreter.frame().CurrentBlock
 		intFalse.PathCondition = symbolic.NewLogicalOperation(
 			[]symbolic.SymbolicExpression{
 				intFalse.PathCondition,
@@ -120,18 +164,13 @@ func (interpreter *Interpreter) interpretDynamically(element ssa.Instruction) []
 			symbolic.AND,
 		)
 		intFalse.frame().CurrentBlock = succs[1].Index
-		intFalse.frame().CurrentInstr = 0
+		intFalse.frame().PrevBlock = interpreter.frame().CurrentBlock
 		return []Interpreter{*intTrue, *intFalse}
-	// case *ssa.Alloc:
-	case *ssa.Jump:
-		interpreter.frame().CurrentBlock = element.Block().Succs[0].Index
-		interpreter.frame().CurrentInstr = 0
-		return []Interpreter{*interpreter}
 
-	case *ssa.UnOp:
-		X := interpreter.resolveExpression(element.X)
-		execUnOp(element.Op, X)
-		interpreter.frame().CurrentInstr++
+		// case *ssa.Alloc:
+	case *ssa.Jump:
+		interpreter.frame().PrevBlock = interpreter.frame().CurrentBlock
+		interpreter.frame().CurrentBlock = element.Block().Succs[0].Index
 		return []Interpreter{*interpreter}
 
 	case *ssa.Return:
@@ -159,24 +198,10 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 			panic(fmt.Sprintf("unexpected value.Kind(): %#v", value.Type().Underlying().(*types.Basic).Kind()))
 		}
 
-	case *ssa.Parameter:
-		frame := interpreter.CallStack[len(interpreter.CallStack)-1]
-		res := frame.LocalMemory[value.Name()]
-		if res == nil {
-			panic(fmt.Sprintf("no parameter in scope %#v", value.Name()))
-		}
-		return res
-
-	case *ssa.BinOp:
-		X := interpreter.resolveExpression(value.X)
-		Y := interpreter.resolveExpression(value.Y)
-		return execBinOp(value.Op, X, Y)
-
-	case *ssa.UnOp:
-		X := interpreter.resolveExpression(value.X)
-		return execUnOp(value.Op, X)
-
 	default:
+		if v, ok := interpreter.frame().LocalMemory[value]; ok {
+			return v
+		}
 		panic(fmt.Sprintf("unexpected ssa.Value: %#v", value))
 	}
 }

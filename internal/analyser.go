@@ -29,14 +29,13 @@ func createAnalyser(source string, functionName string, selector PathSelector) *
 
 	frame := CallStackFrame{
 		Function:     graph,
-		LocalMemory:  map[string]symbolic.SymbolicExpression{},
+		LocalMemory:  map[ssa.Value]symbolic.SymbolicExpression{},
 		ReturnValue:  nil,
 		CurrentBlock: 0,
-		CurrentInstr: 0,
 	}
 
 	for _, param := range graph.Params {
-		frame.LocalMemory[param.Name()] = symbolic.NewSymbolicVariable(param.Name(), ConvertType(param.Type()))
+		frame.LocalMemory[param] = symbolic.NewSymbolicVariable(param.Name(), ConvertType(param.Type()))
 	}
 
 	res := &Analyser{
@@ -73,10 +72,7 @@ func Analyse(source string, functionName string) []Interpreter {
 	i := 0
 	for i < 10 && analyser.StatesQueue.Len() > 0 {
 		state := analyser.StatesQueue.Pop().(*Item).value
-		stack := state.CallStack[len(state.CallStack)-1]
-		block := stack.Function.Blocks[stack.CurrentBlock]
-		instr := block.Instrs[stack.CurrentInstr]
-		new_states := state.interpretDynamically(instr)
+		new_states := state.interpretCurrentBlock()
 		for _, new_state := range new_states {
 			analyser.StatesQueue.Push(&Item{
 				value:    new_state,
