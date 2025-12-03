@@ -106,7 +106,7 @@ type BinaryOperation struct {
 
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	if left.Type() != IntType || right.Type() != IntType {
+	if left.Type() != right.Type() || (left.Type() != IntType && left.Type() != BoolType) {
 		panic("incompatible types")
 	}
 

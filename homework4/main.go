@@ -16,7 +16,7 @@ func main() {
 		"testArithmetic",
 		// "testUnary",
 		"testComparisons",
-		// "testLogicalOps",
+		"testLogicalOps",
 		"testWhileLoop",
 		"testForLoop",
 		"testInfiniteLoopBreak",
