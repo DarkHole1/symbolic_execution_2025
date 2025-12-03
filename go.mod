@@ -8,6 +8,7 @@ require (
 )
 
 require (
+	github.com/LastPossum/kamino v0.0.2 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
 )

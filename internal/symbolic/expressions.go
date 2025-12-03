@@ -106,7 +106,7 @@ type BinaryOperation struct {
 
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	if left.Type() != IntType || right.Type() != IntType {
+	if left.Type() != right.Type() || (left.Type() != IntType && left.Type() != BoolType) {
 		panic("incompatible types")
 	}
 
@@ -156,7 +156,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 			panic("incorrect number of arguments")
 		}
 	case NOT:
-		if len(operands) != 2 {
+		if len(operands) != 1 {
 			panic("incorrect number of arguments")
 		}
 	}
