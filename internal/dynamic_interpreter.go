@@ -67,6 +67,16 @@ func execBinOp(op token.Token, X, Y symbolic.SymbolicExpression) symbolic.Symbol
 		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X, Y}, symbolic.AND)
 	case token.LOR:
 		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X, Y}, symbolic.OR)
+	case token.AND:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.BAND)
+	case token.OR:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.BOR)
+	case token.XOR:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.BXOR)
+	case token.SHL:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.SHL)
+	case token.SHR:
+		return symbolic.NewBinaryOperation(X, Y, symbolic.SHR)
 	default:
 		panic(fmt.Sprintf("unexpected token.Token: %#v", op))
 	}
@@ -78,6 +88,8 @@ func execUnOp(op token.Token, X symbolic.SymbolicExpression) symbolic.SymbolicEx
 		return symbolic.NewBinaryOperation(X, symbolic.NewIntConstant(-1), symbolic.MUL)
 	case token.NOT:
 		return symbolic.NewLogicalOperation([]symbolic.SymbolicExpression{X}, symbolic.NOT)
+	case token.XOR:
+		return symbolic.NewUnaryOperation(X, symbolic.BNOT)
 	default:
 		panic(fmt.Sprintf("unexpected token.Token: %#v", op))
 	}
@@ -190,7 +202,7 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 	switch value := value.(type) {
 	case *ssa.Const:
 		switch value.Type().Underlying().(*types.Basic).Kind() {
-		case types.Int:
+		case types.Int, types.Uint:
 			return symbolic.NewIntConstant(value.Int64())
 		case types.Bool:
 			return symbolic.NewBoolConstant(constant.BoolVal(value.Value))

@@ -120,7 +120,7 @@ func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *Bina
 // Type возвращает результирующий тип операции
 func (bo *BinaryOperation) Type() ExpressionType {
 	switch bo.Operator {
-	case ADD, SUB, MUL, DIV, MOD:
+	case ADD, SUB, MUL, DIV, MOD, BAND, BOR, BXOR, SHL, SHR:
 		return IntType
 	case EQ, NE, GT, LT, GE, LE:
 		return BoolType
@@ -220,6 +220,12 @@ const (
 	LE // меньше или равно
 	GT // больше
 	GE // больше или равно
+
+	BAND
+	BOR
+	BXOR
+	SHL
+	SHR
 )
 
 // String возвращает строковое представление оператора
@@ -278,6 +284,21 @@ func (op LogicalOperator) String() string {
 	}
 }
 
+type UnaryOperator int
+
+const (
+	BNOT UnaryOperator = iota
+)
+
+func (op UnaryOperator) String() string {
+	switch op {
+	case BNOT:
+		return "^"
+	default:
+		return "unknown"
+	}
+}
+
 type Ref struct {
 	Tpe    ExpressionType
 	Ptr    int64
@@ -298,8 +319,38 @@ func (ref *Ref) Accept(visitor Visitor) interface{} {
 	return ref.Memory.Deref(ref).Accept(visitor)
 }
 
+type UnaryOperation struct {
+	Left     SymbolicExpression
+	Operator UnaryOperator
+}
+
+func NewUnaryOperation(left SymbolicExpression, op UnaryOperator) *UnaryOperation {
+	if left.Type() != IntType {
+		panic("incompatible types")
+	}
+
+	return &UnaryOperation{
+		Left:     left,
+		Operator: op,
+	}
+}
+
+// Type возвращает результирующий тип операции
+func (uo *UnaryOperation) Type() ExpressionType {
+	return IntType
+}
+
+// String возвращает строковое представление операции
+func (uo *UnaryOperation) String() string {
+	return fmt.Sprintf("(%s %s)", uo.Operator.String(), uo.Left.String())
+}
+
+// Accept реализует Visitor pattern
+func (uo *UnaryOperation) Accept(visitor Visitor) interface{} {
+	return visitor.VisitUnaryOperation(uo)
+}
+
 // TODO: Добавьте дополнительные типы выражений по необходимости:
-// - UnaryOperation (унарные операции: -x, !x)
 // - ArrayAccess (доступ к элементам массива: arr[index])
 // - FunctionCall (вызовы функций: f(x, y))
 // - ConditionalExpression (тернарный оператор: condition ? true_expr : false_expr)

@@ -130,6 +130,16 @@ func (zt *Z3Translator) VisitLogicalOperation(expr *symbolic.LogicalOperation) i
 	panic("not implemented")
 }
 
+func (zt *Z3Translator) VisitUnaryOperation(expr *symbolic.UnaryOperation) interface{} {
+	left := expr.Left.Accept(zt).(z3.BV)
+
+	switch expr.Operator {
+	case symbolic.BNOT:
+		return left.Not()
+	}
+	panic("not implemented")
+}
+
 // Вспомогательные методы
 
 // createZ3Variable создаёт Z3 переменную соответствующего типа
