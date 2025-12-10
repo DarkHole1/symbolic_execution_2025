@@ -74,6 +74,7 @@ func main() {
 					symbolic.NewBinaryOperation(x, y, symbolic.LT),
 					symbolic.NewBinaryOperation(symbolic.NewBinaryOperation(x, y, symbolic.SUB), zero, symbolic.GE),
 					symbolic.NewBinaryOperation(x, zero, symbolic.GT),
+					symbolic.NewBinaryOperation(y, zero, symbolic.EQ),
 				},
 				symbolic.AND,
 			),
@@ -103,10 +104,13 @@ func main() {
 	if sat {
 		model := solver.Model()
 
-		xVal := model.Eval(z3x.(z3.Int), false)
-		yVal := model.Eval(z3y.(z3.Int), false)
+		xVal := model.Eval(z3x.(z3.BV), false).(z3.BV)
+		yVal := model.Eval(z3y.(z3.BV), false).(z3.BV)
 
-		fmt.Printf("Решение найдено: x = %s, y = %s\n", xVal.String(), yVal.String())
+		xV, _, _ := xVal.AsInt64()
+		yV, _, _ := yVal.AsInt64()
+
+		fmt.Printf("Решение найдено: x = %d, y = %d\n", xV, yV)
 	} else {
 		fmt.Println("Решение не найдено")
 	}

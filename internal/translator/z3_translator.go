@@ -61,7 +61,7 @@ func (zt *Z3Translator) VisitVariable(expr *symbolic.SymbolicVariable) interface
 
 // VisitIntConstant транслирует целочисленную константу в Z3
 func (zt *Z3Translator) VisitIntConstant(expr *symbolic.IntConstant) interface{} {
-	return zt.ctx.FromInt(expr.Value, zt.ctx.IntSort())
+	return zt.ctx.FromInt(expr.Value, zt.ctx.BVSort(64))
 }
 
 // VisitBoolConstant транслирует булеву константу в Z3
@@ -69,10 +69,14 @@ func (zt *Z3Translator) VisitBoolConstant(expr *symbolic.BoolConstant) interface
 	return zt.ctx.FromBool(expr.Value)
 }
 
+func (zt *Z3Translator) VisitFloatConstant(expr *symbolic.FloatConstant) interface{} {
+	return zt.ctx.FromFloat64(expr.Value, zt.ctx.FloatSort(11, 53))
+}
+
 // VisitBinaryOperation транслирует бинарную операцию в Z3
 func (zt *Z3Translator) VisitBinaryOperation(expr *symbolic.BinaryOperation) interface{} {
-	left := expr.Left.Accept(zt).(z3.Int)
-	right := expr.Right.Accept(zt).(z3.Int)
+	left := expr.Left.Accept(zt).(z3.BV)
+	right := expr.Right.Accept(zt).(z3.BV)
 
 	switch expr.Operator {
 	case symbolic.ADD:
@@ -80,23 +84,23 @@ func (zt *Z3Translator) VisitBinaryOperation(expr *symbolic.BinaryOperation) int
 	case symbolic.SUB:
 		return left.Sub(right)
 	case symbolic.DIV:
-		return left.Div(right)
+		return left.SDiv(right)
 	case symbolic.MUL:
 		return left.Mul(right)
 	case symbolic.MOD:
-		return left.Mod(right)
+		return left.SMod(right)
 	case symbolic.EQ:
 		return left.Eq(right)
 	case symbolic.NE:
 		return left.NE(right)
 	case symbolic.LT:
-		return left.LT(right)
+		return left.SLT(right)
 	case symbolic.LE:
-		return left.LE(right)
+		return left.SLE(right)
 	case symbolic.GT:
-		return left.GT(right)
+		return left.SGT(right)
 	case symbolic.GE:
-		return left.GE(right)
+		return left.SGE(right)
 	}
 	panic("not implemented")
 }
@@ -130,17 +134,27 @@ func (zt *Z3Translator) VisitLogicalOperation(expr *symbolic.LogicalOperation) i
 	panic("not implemented")
 }
 
+func (zt *Z3Translator) VisitUnaryOperation(expr *symbolic.UnaryOperation) interface{} {
+	left := expr.Left.Accept(zt).(z3.BV)
+
+	switch expr.Operator {
+	case symbolic.BNOT:
+		return left.Not()
+	}
+	panic("not implemented")
+}
+
 // Вспомогательные методы
 
 // createZ3Variable создаёт Z3 переменную соответствующего типа
 func (zt *Z3Translator) createZ3Variable(name string, exprType symbolic.ExpressionType) z3.Value {
 	switch exprType {
 	case symbolic.IntType:
-		return zt.ctx.IntConst(name)
+		return zt.ctx.BVConst(name, 64)
 	case symbolic.BoolType:
 		return zt.ctx.BoolConst(name)
 	case symbolic.ArrayType:
-		return zt.ctx.ConstArray(zt.ctx.IntSort(), zt.ctx.IntConst(name))
+		return zt.ctx.ConstArray(zt.ctx.BVSort(64), zt.ctx.BVConst(name, 64))
 	}
 	panic("не реализовано")
 }
@@ -149,7 +163,7 @@ func (zt *Z3Translator) createZ3Variable(name string, exprType symbolic.Expressi
 func (zt *Z3Translator) castToZ3Type(value interface{}, targetType symbolic.ExpressionType) (z3.Value, error) {
 	switch targetType {
 	case symbolic.IntType:
-		v, ok := value.(z3.Int)
+		v, ok := value.(z3.BV)
 		if !ok {
 			return nil, fmt.Errorf("incorrect type cast")
 		}

@@ -97,6 +97,30 @@ func (bc *BoolConstant) Accept(visitor Visitor) interface{} {
 	return visitor.VisitBoolConstant(bc)
 }
 
+type FloatConstant struct {
+	Value float64
+}
+
+// NewBoolConstant создаёт новую булеву константу
+func NewFloatConstant(value float64) *FloatConstant {
+	return &FloatConstant{Value: value}
+}
+
+// Type возвращает тип константы
+func (fc *FloatConstant) Type() ExpressionType {
+	return FloatType
+}
+
+// String возвращает строковое представление константы
+func (fc *FloatConstant) String() string {
+	return fmt.Sprintf("%f", fc.Value)
+}
+
+// Accept реализует Visitor pattern
+func (fc *FloatConstant) Accept(visitor Visitor) interface{} {
+	return visitor.VisitFloatConstant(fc)
+}
+
 // BinaryOperation представляет бинарную операцию
 type BinaryOperation struct {
 	Left     SymbolicExpression
@@ -106,21 +130,45 @@ type BinaryOperation struct {
 
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	if left.Type() != IntType || right.Type() != IntType {
-		panic("incompatible types")
+	if left.Type() == BoolType && right.Type() == BoolType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
 	}
 
-	return &BinaryOperation{
-		Left:     left,
-		Right:    right,
-		Operator: op,
+	if left.Type() == IntType && right.Type() == IntType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
 	}
+
+	if left.Type() == FloatType && right.Type() == FloatType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
+	}
+
+	if left.Type() == IntType && right.Type() == FloatType || left.Type() == FloatType && right.Type() == IntType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
+	}
+
+	panic("incompatible types")
 }
 
 // Type возвращает результирующий тип операции
 func (bo *BinaryOperation) Type() ExpressionType {
 	switch bo.Operator {
-	case ADD, SUB, MUL, DIV, MOD:
+	case ADD, SUB, MUL, DIV, MOD, BAND, BOR, BXOR, SHL, SHR:
 		return IntType
 	case EQ, NE, GT, LT, GE, LE:
 		return BoolType
@@ -156,7 +204,7 @@ func NewLogicalOperation(operands []SymbolicExpression, op LogicalOperator) *Log
 			panic("incorrect number of arguments")
 		}
 	case NOT:
-		if len(operands) != 2 {
+		if len(operands) != 1 {
 			panic("incorrect number of arguments")
 		}
 	}
@@ -220,6 +268,12 @@ const (
 	LE // меньше или равно
 	GT // больше
 	GE // больше или равно
+
+	BAND
+	BOR
+	BXOR
+	SHL
+	SHR
 )
 
 // String возвращает строковое представление оператора
@@ -278,6 +332,21 @@ func (op LogicalOperator) String() string {
 	}
 }
 
+type UnaryOperator int
+
+const (
+	BNOT UnaryOperator = iota
+)
+
+func (op UnaryOperator) String() string {
+	switch op {
+	case BNOT:
+		return "^"
+	default:
+		return "unknown"
+	}
+}
+
 type Ref struct {
 	Tpe    ExpressionType
 	Ptr    int64
@@ -298,8 +367,38 @@ func (ref *Ref) Accept(visitor Visitor) interface{} {
 	return ref.Memory.Deref(ref).Accept(visitor)
 }
 
+type UnaryOperation struct {
+	Left     SymbolicExpression
+	Operator UnaryOperator
+}
+
+func NewUnaryOperation(left SymbolicExpression, op UnaryOperator) *UnaryOperation {
+	if left.Type() != IntType {
+		panic("incompatible types")
+	}
+
+	return &UnaryOperation{
+		Left:     left,
+		Operator: op,
+	}
+}
+
+// Type возвращает результирующий тип операции
+func (uo *UnaryOperation) Type() ExpressionType {
+	return IntType
+}
+
+// String возвращает строковое представление операции
+func (uo *UnaryOperation) String() string {
+	return fmt.Sprintf("(%s %s)", uo.Operator.String(), uo.Left.String())
+}
+
+// Accept реализует Visitor pattern
+func (uo *UnaryOperation) Accept(visitor Visitor) interface{} {
+	return visitor.VisitUnaryOperation(uo)
+}
+
 // TODO: Добавьте дополнительные типы выражений по необходимости:
-// - UnaryOperation (унарные операции: -x, !x)
 // - ArrayAccess (доступ к элементам массива: arr[index])
 // - FunctionCall (вызовы функций: f(x, y))
 // - ConditionalExpression (тернарный оператор: condition ? true_expr : false_expr)

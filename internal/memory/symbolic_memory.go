@@ -20,8 +20,8 @@ type SymbolicMemory struct {
 	arrayObjectPool map[int64]map[int]symbolic.SymbolicExpression
 }
 
-func NewSymbolicMemory() SymbolicMemory {
-	return SymbolicMemory{
+func NewSymbolicMemory() *SymbolicMemory {
+	return &SymbolicMemory{
 		c:               0,
 		pool:            make(map[symbolic.ExpressionType]map[int64]symbolic.SymbolicExpression),
 		arrayObjectPool: make(map[int64]map[int]symbolic.SymbolicExpression),
