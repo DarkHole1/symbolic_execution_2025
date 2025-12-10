@@ -69,6 +69,10 @@ func (zt *Z3Translator) VisitBoolConstant(expr *symbolic.BoolConstant) interface
 	return zt.ctx.FromBool(expr.Value)
 }
 
+func (zt *Z3Translator) VisitFloatConstant(expr *symbolic.FloatConstant) interface{} {
+	return zt.ctx.FromFloat64(expr.Value, zt.ctx.FloatSort(11, 53))
+}
+
 // VisitBinaryOperation транслирует бинарную операцию в Z3
 func (zt *Z3Translator) VisitBinaryOperation(expr *symbolic.BinaryOperation) interface{} {
 	left := expr.Left.Accept(zt).(z3.BV)

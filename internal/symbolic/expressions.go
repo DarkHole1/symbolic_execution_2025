@@ -97,6 +97,30 @@ func (bc *BoolConstant) Accept(visitor Visitor) interface{} {
 	return visitor.VisitBoolConstant(bc)
 }
 
+type FloatConstant struct {
+	Value float64
+}
+
+// NewBoolConstant создаёт новую булеву константу
+func NewFloatConstant(value float64) *FloatConstant {
+	return &FloatConstant{Value: value}
+}
+
+// Type возвращает тип константы
+func (fc *FloatConstant) Type() ExpressionType {
+	return FloatType
+}
+
+// String возвращает строковое представление константы
+func (fc *FloatConstant) String() string {
+	return fmt.Sprintf("%f", fc.Value)
+}
+
+// Accept реализует Visitor pattern
+func (fc *FloatConstant) Accept(visitor Visitor) interface{} {
+	return visitor.VisitFloatConstant(fc)
+}
+
 // BinaryOperation представляет бинарную операцию
 type BinaryOperation struct {
 	Left     SymbolicExpression
@@ -106,15 +130,39 @@ type BinaryOperation struct {
 
 // NewBinaryOperation создаёт новую бинарную операцию
 func NewBinaryOperation(left, right SymbolicExpression, op BinaryOperator) *BinaryOperation {
-	if left.Type() != right.Type() || (left.Type() != IntType && left.Type() != BoolType) {
-		panic("incompatible types")
+	if left.Type() == BoolType && right.Type() == BoolType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
 	}
 
-	return &BinaryOperation{
-		Left:     left,
-		Right:    right,
-		Operator: op,
+	if left.Type() == IntType && right.Type() == IntType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
 	}
+
+	if left.Type() == FloatType && right.Type() == FloatType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
+	}
+
+	if left.Type() == IntType && right.Type() == FloatType || left.Type() == FloatType && right.Type() == IntType {
+		return &BinaryOperation{
+			Left:     left,
+			Right:    right,
+			Operator: op,
+		}
+	}
+
+	panic("incompatible types")
 }
 
 // Type возвращает результирующий тип операции

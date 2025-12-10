@@ -34,6 +34,8 @@ func ConvertType(tpe types.Type) symbolic.ExpressionType {
 		return symbolic.BoolType
 	case types.Int:
 		return symbolic.IntType
+	case types.UntypedFloat, types.Float64:
+		return symbolic.FloatType
 	default:
 		panic("unexpected types.BasicKind")
 	}
@@ -206,6 +208,9 @@ func (interpreter *Interpreter) resolveExpression(value ssa.Value) symbolic.Symb
 			return symbolic.NewIntConstant(value.Int64())
 		case types.Bool:
 			return symbolic.NewBoolConstant(constant.BoolVal(value.Value))
+		case types.UntypedFloat, types.Float64:
+			v, _ := constant.Float64Val(value.Value)
+			return symbolic.NewFloatConstant(v)
 		default:
 			panic(fmt.Sprintf("unexpected value.Kind(): %#v", value.Type().Underlying().(*types.Basic).Kind()))
 		}

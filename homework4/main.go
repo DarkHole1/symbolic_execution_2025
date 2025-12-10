@@ -28,7 +28,7 @@ func main() {
 		"testCombined",
 		"testEdgeCases",
 		"testMultipleReturns",
-		// "testSimpleSum",
+		"testSimpleSum",
 	}
 
 	for _, fun := range test_functions {
